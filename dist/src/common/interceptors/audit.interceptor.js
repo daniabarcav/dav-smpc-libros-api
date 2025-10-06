@@ -37,7 +37,7 @@ let AuditInterceptor = class AuditInterceptor {
                     reqId,
                 };
                 await audit.log(payload);
-                logger_1.appLogger.info(`${action.toUpperCase()} ${entity} by user ${req.user?.sub || 'anonymous'}`, {
+                logger_1.appLogger.log(`${action.toUpperCase()} ${entity} by user ${req.user?.sub || 'anonymous'}`, {
                     context: 'AuditInterceptor',
                     meta: payload,
                 });

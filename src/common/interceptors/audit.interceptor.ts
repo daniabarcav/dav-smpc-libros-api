@@ -30,7 +30,7 @@ export class AuditInterceptor implements NestInterceptor {
           };
           await audit.log(payload);
 
-          appLogger.info(
+          appLogger.log(
             `${action.toUpperCase()} ${entity} by user ${
               req.user?.sub || 'anonymous'
             }`,

@@ -29,24 +29,26 @@ let AuditService = class AuditService {
             logger_1.appLogger.log({
                 level: 'info',
                 context: 'AuditService',
-                message: `Audit event: ${audit.action || 'unknown'} on ${audit.entity || 'entity'}`,
+                message: `Audit event: ${audit.action ?? 'unknown'} on ${audit.entity ?? 'entity'}`,
                 meta: {
-                    entity: audit.entity,
-                    action: audit.action,
-                    userId: audit.userId,
-                    entityId: audit.entityId,
-                    reqId: audit.reqId,
-                    createdAt: saved.createdAt,
+                    entity: audit.entity ?? null,
+                    action: audit.action ?? null,
+                    userId: audit.userId ?? null,
+                    entityId: audit.entityId ?? null,
+                    reqId: audit.reqId ?? null,
+                    createdAt: saved?.createdAt ?? new Date(),
                 },
             });
             return saved;
         }
         catch (err) {
-            logger_1.appLogger.error({
+            logger_1.appLogger.log({
+                level: 'error',
                 context: 'AuditService',
                 message: 'Failed to save audit log',
-                meta: { error: err.message, entry },
+                meta: { error: err?.message ?? String(err), entry },
             });
+            return null;
         }
     }
 };
