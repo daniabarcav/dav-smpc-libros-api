@@ -31,3 +31,14 @@ npm run test:cov   # cobertura >= 80%
 
 ## Arquitectura
 - Swagger en `/docs`
+
+# Auditoria
+- Herramienta: Winston  
+- Archivo de configuración: src/common/logger.
+-Logs rotativos diarios (JSON + consola colorizada)
+
+# Ubicación de logs:
+- logs/app-YYYY-MM-DD.log
+
+# Diagramas
+- docs/er-diagram.png           : Modelo de base de datos

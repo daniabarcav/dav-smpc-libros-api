@@ -7,9 +7,14 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { Request, Response, NextFunction } from 'express';
+import { appLogger } from './common/logger';
+
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    logger: appLogger,
+  });
 
   app.use((req: Request & { reqId?: string }, _res: Response, next: NextFunction) => {
     req.reqId = uuid();
@@ -23,7 +28,7 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('Library API')
-    .setDescription('API REST de Libros con JWT, Soft Delete y CSV export')
+    .setDescription('API REST de SMPC Libros')
     .setVersion('1.0.1')
     .addBearerAuth()
     .build();

@@ -1,17 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, ILike } from 'typeorm';
+import { Repository, FindOptionsWhere, ILike, DataSource } from 'typeorm';
 import { Book } from './entities/book.entity';
 import { CreateBookDto } from './dto/create-book.dto';
 import { UpdateBookDto } from './dto/update-book.dto';
 
 @Injectable()
 export class BooksService {
-  constructor(@InjectRepository(Book) private repo: Repository<Book>) {}
+  constructor(@InjectRepository(Book) private repo: Repository<Book>,
+    private readonly dataSource: DataSource, 
+) {}
 
   async create(dto: CreateBookDto) {
-    const entity = this.repo.create(dto);
-    return this.repo.save(entity);
+    return this.dataSource.transaction(async (manager) => {
+      const entity = manager.create(Book, dto);
+      const saved = await manager.save(Book, entity);
+      return saved;
+    });
   }
 
   async findAll(q?: { 
@@ -97,9 +102,12 @@ export class BooksService {
   }
 
   async update(id: string, dto: UpdateBookDto) {
-    const book = await this.findOne(id);
-    Object.assign(book, dto);
-    return this.repo.save(book);
+    return this.dataSource.transaction(async (manager) => {
+      const book = await manager.findOne(Book, { where: { id } });
+      if (!book) throw new NotFoundException('Libro no encontrado');
+      Object.assign(book, dto);
+      return manager.save(Book, book);
+    });
   }
 
   async remove(id: string) {

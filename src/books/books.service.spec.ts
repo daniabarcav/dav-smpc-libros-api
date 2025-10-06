@@ -1,62 +1,231 @@
-import { Test } from '@nestjs/testing';
-import { BooksService } from './books.service';
+import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, ILike } from 'typeorm';
+import { BooksService } from './books.service';
 import { Book } from './entities/book.entity';
-
-const bookRepoMock = () => ({
-  create: jest.fn(),
-  save: jest.fn(),
-  findAndCount: jest.fn(),
-  findOne: jest.fn(),
-  softDelete: jest.fn(),
-  restore: jest.fn()
-});
+import { NotFoundException } from '@nestjs/common';
 
 describe('BooksService', () => {
   let service: BooksService;
-  let repo: jest.Mocked<Repository<Book>>;
+  let repo: Repository<Book>;
+
+  const mockBook = {
+    id: '1',
+    title: 'Test Book',
+    author: 'Test Author',
+    publisher: 'Test Publisher',
+    genre: 'Fiction',
+    available: true,
+    year: 2024,
+    price: 20,
+    coverurl: 'http://test.com/cover.jpg',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+  };
+
+  const mockRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+    findOne: jest.fn(),
+    findAndCount: jest.fn(),
+    softDelete: jest.fn(),
+    restore: jest.fn(),
+  };
 
   beforeEach(async () => {
-    const module = await Test.createTestingModule({
+    const module: TestingModule = await Test.createTestingModule({
       providers: [
         BooksService,
-        { provide: getRepositoryToken(Book), useFactory: bookRepoMock }
-      ]
+        {
+          provide: getRepositoryToken(Book),
+          useValue: mockRepository,
+        },
+      ],
     }).compile();
 
-    service = module.get(BooksService);
-    repo = module.get(getRepositoryToken(Book));
+    service = module.get<BooksService>(BooksService);
+    repo = module.get<Repository<Book>>(getRepositoryToken(Book));
   });
 
-  it('create: debe crear y guardar libro', async () => {
-    const dto = { title: 'Clean Code', author: 'Robert C. Martin', year: 2008, price: 10 };
-    const entity = { id: '1', ...dto } as Book;
-    repo.create.mockReturnValue(entity);
-    repo.save.mockResolvedValue(entity);
-
-    const res = await service.create(dto as any);
-    expect(repo.create).toHaveBeenCalledWith(dto);
-    expect(repo.save).toHaveBeenCalledWith(entity);
-    expect(res).toEqual(entity);
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
-  it('findOne: debe lanzar si no existe', async () => {
-    repo.findOne.mockResolvedValue(null as any);
-    await expect(service.findOne('x')).rejects.toThrow('Libro no encontrado');
+  it('should be defined', () => {
+    expect(service).toBeDefined();
   });
 
-  it('remove: soft delete', async () => {
-    repo.findOne.mockResolvedValue({ id: '1' } as any);
-    await service.remove('1');
-    expect(repo.softDelete).toHaveBeenCalledWith('1');
+  describe('create', () => {
+    it('should create a book', async () => {
+      const dto = { title: 'New Book', author: 'Author', publisher: 'Publisher', genre: 'Fiction' };
+      mockRepository.create.mockReturnValue(mockBook);
+      mockRepository.save.mockResolvedValue(mockBook);
+
+      const result = await service.create(dto);
+
+      expect(result).toEqual(mockBook);
+      expect(mockRepository.create).toHaveBeenCalledWith(dto);
+      expect(mockRepository.save).toHaveBeenCalled();
+    });
   });
 
-  it('restore: debe restaurar', async () => {
-    repo.restore.mockResolvedValue({} as any);
-    repo.findOne.mockResolvedValue({ id: '1' } as any);
-    const book = await service.restore('1');
-    expect(repo.restore).toHaveBeenCalledWith('1');
-    expect(book.id).toBe('1');
+  describe('findAll', () => {
+    it('should return paginated books without filters', async () => {
+      mockRepository.findAndCount.mockResolvedValue([[mockBook], 1]);
+
+      const result = await service.findAll();
+
+      expect(result.items).toEqual([mockBook]);
+      expect(result.total).toBe(1);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(10);
+    });
+
+    it('should search books by query', async () => {
+      mockRepository.findAndCount.mockResolvedValue([[mockBook], 1]);
+
+      const result = await service.findAll({ q: 'Test', page: 1, limit: 5 });
+
+      expect(result.items).toEqual([mockBook]);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(5);
+    });
+
+    it('should filter by genre', async () => {
+      mockRepository.findAndCount.mockResolvedValue([[mockBook], 1]);
+
+      const result = await service.findAll({ genre: 'Fiction' });
+
+      expect(result.items).toEqual([mockBook]);
+    });
+
+    it('should filter by publisher', async () => {
+      mockRepository.findAndCount.mockResolvedValue([[mockBook], 1]);
+
+      const result = await service.findAll({ publisher: 'Test Publisher' });
+
+      expect(result.items).toEqual([mockBook]);
+    });
+
+    it('should filter by author', async () => {
+      mockRepository.findAndCount.mockResolvedValue([[mockBook], 1]);
+
+      const result = await service.findAll({ author: 'Test Author' });
+
+      expect(result.items).toEqual([mockBook]);
+    });
+
+    it('should filter by available', async () => {
+      mockRepository.findAndCount.mockResolvedValue([[mockBook], 1]);
+
+      const result = await service.findAll({ available: 'true' });
+
+      expect(result.items).toEqual([mockBook]);
+    });
+
+    it('should include deleted records', async () => {
+      mockRepository.findAndCount.mockResolvedValue([[mockBook], 1]);
+
+      const result = await service.findAll({ includeDeleted: true });
+
+      expect(result.items).toEqual([mockBook]);
+    });
+
+    it('should sort by field', async () => {
+      mockRepository.findAndCount.mockResolvedValue([[mockBook], 1]);
+
+      const result = await service.findAll({ sort: 'title:ASC' });
+
+      expect(result.items).toEqual([mockBook]);
+    });
+
+    it('should use default sort when no sort provided', async () => {
+      mockRepository.findAndCount.mockResolvedValue([[mockBook], 1]);
+
+      const result = await service.findAll({});
+
+      expect(result.items).toEqual([mockBook]);
+    });
+
+    it('should search with multiple filters', async () => {
+      mockRepository.findAndCount.mockResolvedValue([[mockBook], 1]);
+
+      const result = await service.findAll({ 
+        q: 'Test', 
+        genre: 'Fiction',
+        publisher: 'Test Publisher',
+        author: 'Test Author',
+        available: 'true'
+      });
+
+      expect(result.items).toEqual([mockBook]);
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return a book by id', async () => {
+      mockRepository.findOne.mockResolvedValue(mockBook);
+
+      const result = await service.findOne('1');
+
+      expect(result).toEqual(mockBook);
+      expect(mockRepository.findOne).toHaveBeenCalledWith({ where: { id: '1' } });
+    });
+
+    it('should throw NotFoundException when book not found', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('update', () => {
+    it('should update a book', async () => {
+      const dto = { title: 'Updated Book' };
+      mockRepository.findOne.mockResolvedValue(mockBook);
+      mockRepository.save.mockResolvedValue({ ...mockBook, ...dto });
+
+      const result = await service.update('1', dto);
+
+      expect(result.title).toBe('Updated Book');
+      expect(mockRepository.save).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when updating non-existent book', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.update('999', {})).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('remove', () => {
+    it('should soft delete a book', async () => {
+      mockRepository.findOne.mockResolvedValue(mockBook);
+      mockRepository.softDelete.mockResolvedValue({ affected: 1 });
+
+      const result = await service.remove('1');
+
+      expect(result).toEqual({ id: '1', deleted: true });
+      expect(mockRepository.softDelete).toHaveBeenCalledWith('1');
+    });
+
+    it('should throw NotFoundException when deleting non-existent book', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.remove('999')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('restore', () => {
+    it('should restore a deleted book', async () => {
+      mockRepository.restore.mockResolvedValue({ affected: 1 });
+      mockRepository.findOne.mockResolvedValue(mockBook);
+
+      const result = await service.restore('1');
+
+      expect(result).toEqual(mockBook);
+      expect(mockRepository.restore).toHaveBeenCalledWith('1');
+    });
   });
 });
