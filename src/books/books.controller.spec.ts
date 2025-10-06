@@ -63,7 +63,6 @@ describe('BooksService', () => {
       providers: [
         BooksService,
         { provide: getRepositoryToken(Book), useValue: mockRepository },
-        // ⬇️ añade ambos para cubrir cualquier forma de inyección en el servicio
         { provide: getDataSourceToken(), useValue: dataSourceMock },
         { provide: DataSource, useValue: dataSourceMock },
       ],

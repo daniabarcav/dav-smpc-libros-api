@@ -24,7 +24,6 @@ describe('AuthService', () => {
   it('validate: credenciales válidas', async () => {
     const user = { id: 'u1', email: 'admin@demo.com', password: '$2b$10$hash' };
     usersMock.findByEmail.mockResolvedValue(user);
-    // simulamos que bcrypt.compare devuelve true
     jest.spyOn(require('bcrypt'), 'compare').mockResolvedValue(true as any);
 
     const res = await service.validate('admin@demo.com', 'admin123');
