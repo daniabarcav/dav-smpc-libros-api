@@ -44,10 +44,7 @@ export class BooksController {
     @Body() dto: any,
     @UploadedFile() file: Express.Multer.File
   ) {
-    console.log('📦 Body recibido:', dto);
-    console.log('📦 File recibido:', file);
     
-    // Convertir y limpiar los datos
     const bookData: CreateBookDto = {
       title: dto.title,
       author: dto.author,

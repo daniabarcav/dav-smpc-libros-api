@@ -26,8 +26,6 @@ let BooksController = class BooksController {
         this.books = books;
     }
     create(dto, file) {
-        console.log('📦 Body recibido:', dto);
-        console.log('📦 File recibido:', file);
         const bookData = {
             title: dto.title,
             author: dto.author,
