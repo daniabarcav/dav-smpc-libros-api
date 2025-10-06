@@ -11,7 +11,7 @@ export class Book {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 }) price!: number;
   @Column() genre!: string;
   @Column({ type: 'boolean', default: true }) available!: boolean;
-  @Column({ nullable: true }) coverurl?: string;  
+  @Column({ type: 'text', nullable: true }) coverUrl?: string;  
 
   @CreateDateColumn() createdAt!: Date;
   @UpdateDateColumn() updatedAt!: Date;

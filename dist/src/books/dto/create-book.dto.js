@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateBookDto = void 0;
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
 class CreateBookDto {
 }
 exports.CreateBookDto = CreateBookDto;
@@ -28,12 +29,14 @@ __decorate([
 ], CreateBookDto.prototype, "publisher", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], CreateBookDto.prototype, "year", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)({ maxDecimalPlaces: 2 }),
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
@@ -44,6 +47,13 @@ __decorate([
 ], CreateBookDto.prototype, "genre", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value === 'true')
+            return true;
+        if (value === 'false')
+            return false;
+        return Boolean(value);
+    }),
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateBookDto.prototype, "available", void 0);
@@ -51,5 +61,5 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
-], CreateBookDto.prototype, "coverurl", void 0);
+], CreateBookDto.prototype, "coverUrl", void 0);
 //# sourceMappingURL=create-book.dto.js.map

@@ -14,9 +14,10 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BooksController = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
+const multer_1 = require("multer");
+const path_1 = require("path");
 const books_service_1 = require("./books.service");
-const create_book_dto_1 = require("./dto/create-book.dto");
-const update_book_dto_1 = require("./dto/update-book.dto");
 const jwt_guard_1 = require("../auth/jwt.guard");
 const csv_util_1 = require("../common/utils/csv.util");
 const swagger_1 = require("@nestjs/swagger");
@@ -24,7 +25,21 @@ let BooksController = class BooksController {
     constructor(books) {
         this.books = books;
     }
-    create(dto) { return this.books.create(dto); }
+    create(dto, file) {
+        console.log('📦 Body recibido:', dto);
+        console.log('📦 File recibido:', file);
+        const bookData = {
+            title: dto.title,
+            author: dto.author,
+            publisher: dto.publisher,
+            genre: dto.genre,
+            year: dto.year ? parseInt(dto.year, 10) : undefined,
+            price: dto.price ? parseFloat(dto.price) : undefined,
+            available: dto.available === 'true' || dto.available === true,
+            coverUrl: file ? `/uploads/${file.filename}` : undefined
+        };
+        return this.books.create(bookData);
+    }
     findAll(query) {
         return this.books.findAll({
             q: query.q,
@@ -37,15 +52,35 @@ let BooksController = class BooksController {
             limit: query.limit ? parseInt(query.limit) : undefined,
         });
     }
-    findOne(id) { return this.books.findOne(id); }
-    update(id, dto) { return this.books.update(id, dto); }
-    remove(id) { return this.books.remove(id); }
-    restore(id) { return this.books.restore(id); }
+    findOne(id) {
+        return this.books.findOne(id);
+    }
+    update(id, dto, file) {
+        const bookData = {
+            ...(dto.title && { title: dto.title }),
+            ...(dto.author && { author: dto.author }),
+            ...(dto.publisher && { publisher: dto.publisher }),
+            ...(dto.genre && { genre: dto.genre }),
+            ...(dto.year && { year: parseInt(dto.year, 10) }),
+            ...(dto.price && { price: parseFloat(dto.price) }),
+            ...(dto.available !== undefined && {
+                available: dto.available === 'true' || dto.available === true
+            }),
+            ...(file && { coverUrl: `/uploads/${file.filename}` })
+        };
+        return this.books.update(id, bookData);
+    }
+    remove(id) {
+        return this.books.remove(id);
+    }
+    restore(id) {
+        return this.books.restore(id);
+    }
     async exportCsv(res, q) {
         const { items } = await this.books.findAll({ q, page: 1, limit: 10000, includeDeleted: true });
         const csv = await (0, csv_util_1.toCSV)(items.map(i => ({
             id: i.id, title: i.title, author: i.author, publisher: i.publisher,
-            genre: i.genre, available: i.available, year: i.year, price: i.price, coverurl: i.coverurl, deletedAt: i.deletedAt ?? '',
+            genre: i.genre, available: i.available, year: i.year, price: i.price, coverurl: i.coverUrl, deletedAt: i.deletedAt ?? '',
             createdAt: i.createdAt.toISOString(), updatedAt: i.updatedAt.toISOString(),
         })));
         res.setHeader('Content-Type', 'text/csv');
@@ -56,9 +91,29 @@ let BooksController = class BooksController {
 exports.BooksController = BooksController;
 __decorate([
     (0, common_1.Post)(),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('cover', {
+        storage: (0, multer_1.diskStorage)({
+            destination: './uploads',
+            filename: (req, file, cb) => {
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                const ext = (0, path_1.extname)(file.originalname);
+                cb(null, `book-${uniqueSuffix}${ext}`);
+            }
+        }),
+        fileFilter: (req, file, cb) => {
+            if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+                return cb(new Error('Solo se permiten imágenes'), false);
+            }
+            cb(null, true);
+        },
+        limits: {
+            fileSize: 5 * 1024 * 1024
+        }
+    })),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_book_dto_1.CreateBookDto]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], BooksController.prototype, "create", null);
 __decorate([
@@ -77,10 +132,30 @@ __decorate([
 ], BooksController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('cover', {
+        storage: (0, multer_1.diskStorage)({
+            destination: './uploads',
+            filename: (req, file, cb) => {
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                const ext = (0, path_1.extname)(file.originalname);
+                cb(null, `book-${uniqueSuffix}${ext}`);
+            }
+        }),
+        fileFilter: (req, file, cb) => {
+            if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+                return cb(new Error('Solo se permiten imágenes'), false);
+            }
+            cb(null, true);
+        },
+        limits: {
+            fileSize: 5 * 1024 * 1024
+        }
+    })),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_book_dto_1.UpdateBookDto]),
+    __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], BooksController.prototype, "update", null);
 __decorate([

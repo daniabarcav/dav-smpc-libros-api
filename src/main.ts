@@ -8,10 +8,12 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { Request, Response, NextFunction } from 'express';
 import { appLogger } from './common/logger';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import * as path from 'path';
 
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
     logger: appLogger,
   });
@@ -21,10 +23,23 @@ async function bootstrap() {
     next();
   });
 
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalPipes(new ValidationPipe({ 
+    whitelist: true, 
+    transform: true, 
+    transformOptions: {
+      enableImplicitConversion: true
+    } 
+  }));
+  
   const auditInterceptor = app.get(AuditInterceptor);
   app.useGlobalInterceptors(new LoggingInterceptor(), auditInterceptor);
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  const uploadsPath = path.resolve(process.cwd(), 'uploads');
+
+  app.useStaticAssets(uploadsPath, {
+    prefix: '/uploads/',
+  });
 
   const config = new DocumentBuilder()
     .setTitle('Library API')

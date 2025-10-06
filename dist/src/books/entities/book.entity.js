@@ -48,9 +48,9 @@ __decorate([
     __metadata("design:type", Boolean)
 ], Book.prototype, "available", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true }),
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)
-], Book.prototype, "coverurl", void 0);
+], Book.prototype, "coverUrl", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

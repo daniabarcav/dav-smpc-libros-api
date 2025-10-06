@@ -6,5 +6,5 @@ export declare class CreateBookDto {
     price?: number;
     genre: string;
     available?: boolean;
-    coverurl?: string;
+    coverUrl?: string;
 }

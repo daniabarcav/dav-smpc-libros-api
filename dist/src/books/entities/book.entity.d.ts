@@ -7,7 +7,7 @@ export declare class Book {
     price: number;
     genre: string;
     available: boolean;
-    coverurl?: string;
+    coverUrl?: string;
     createdAt: Date;
     updatedAt: Date;
     deletedAt?: Date | null;

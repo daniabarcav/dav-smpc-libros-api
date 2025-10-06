@@ -1,11 +1,9 @@
 import { Response } from 'express';
 import { BooksService } from './books.service';
-import { CreateBookDto } from './dto/create-book.dto';
-import { UpdateBookDto } from './dto/update-book.dto';
 export declare class BooksController {
     private readonly books;
     constructor(books: BooksService);
-    create(dto: CreateBookDto): Promise<import("./entities/book.entity").Book>;
+    create(dto: any, file: Express.Multer.File): Promise<import("./entities/book.entity").Book>;
     findAll(query: any): Promise<{
         items: import("./entities/book.entity").Book[];
         page: number;
@@ -14,7 +12,7 @@ export declare class BooksController {
         totalPages: number;
     }>;
     findOne(id: string): Promise<import("./entities/book.entity").Book>;
-    update(id: string, dto: UpdateBookDto): Promise<import("./entities/book.entity").Book>;
+    update(id: string, dto: any, file: Express.Multer.File): Promise<import("./entities/book.entity").Book>;
     remove(id: string): Promise<{
         id: string;
         deleted: boolean;
