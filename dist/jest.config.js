@@ -5,7 +5,10 @@ const config = {
     testEnvironment: 'node',
     rootDir: '.',
     moduleFileExtensions: ['ts', 'js', 'json'],
-    testMatch: ['<rootDir>/src/**/*.spec.ts'],
+    moduleNameMapper: {
+        '^src/common/logger$': '<rootDir>/__mocks__/src/common/logger.ts',
+        '^src/(.*)$': '<rootDir>/src/$1',
+    },
     collectCoverageFrom: [
         'src/**/*.service.ts',
         'src/**/*.controller.ts',
@@ -14,10 +17,11 @@ const config = {
         '!src/**/entities/*.ts',
         '!src/main.ts',
         '!src/app.module.ts',
+        '!src/common/logger.ts',
     ],
     coverageDirectory: 'coverage',
     coverageReporters: ['text', 'lcov', 'json-summary'],
-    coverageThreshold: { global: { branches: 80, functions: 80, lines: 80, statements: 80 } }
+    coverageThreshold: { global: { branches: 80, functions: 80, lines: 80, statements: 80 } },
 };
 exports.default = config;
 //# sourceMappingURL=jest.config.js.map

@@ -17,11 +17,38 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const audit_entity_1 = require("./entities/audit.entity");
+const logger_1 = require("../common/logger");
 let AuditService = class AuditService {
     constructor(repo) {
         this.repo = repo;
     }
-    async log(entry) { await this.repo.save(this.repo.create(entry)); }
+    async log(entry) {
+        try {
+            const audit = this.repo.create(entry);
+            const saved = await this.repo.save(audit);
+            logger_1.appLogger.log({
+                level: 'info',
+                context: 'AuditService',
+                message: `Audit event: ${audit.action || 'unknown'} on ${audit.entity || 'entity'}`,
+                meta: {
+                    entity: audit.entity,
+                    action: audit.action,
+                    userId: audit.userId,
+                    entityId: audit.entityId,
+                    reqId: audit.reqId,
+                    createdAt: saved.createdAt,
+                },
+            });
+            return saved;
+        }
+        catch (err) {
+            logger_1.appLogger.error({
+                context: 'AuditService',
+                message: 'Failed to save audit log',
+                meta: { error: err.message, entry },
+            });
+        }
+    }
 };
 exports.AuditService = AuditService;
 exports.AuditService = AuditService = __decorate([

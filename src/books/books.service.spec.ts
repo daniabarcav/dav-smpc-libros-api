@@ -1,9 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { BooksService } from './books.service';
 import { Book } from './entities/book.entity';
 import { NotFoundException } from '@nestjs/common';
+
+jest.mock('src/common/logger', () => ({
+  appLogger: {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+  },
+}));
 
 describe('BooksService', () => {
   let service: BooksService;
@@ -33,14 +43,27 @@ describe('BooksService', () => {
     restore: jest.fn(),
   };
 
+  const managerMock = {
+    create: jest.fn(),
+    save: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  };
+
+  const dataSourceMock: Partial<DataSource> = {
+    transaction: jest.fn(async (cb: any) => cb(managerMock)),
+  };
+
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BooksService,
-        {
-          provide: getRepositoryToken(Book),
-          useValue: mockRepository,
-        },
+        { provide: getRepositoryToken(Book), useValue: mockRepository },
+        { provide: getDataSourceToken(), useValue: dataSourceMock },
+        { provide: DataSource, useValue: dataSourceMock },
       ],
     }).compile();
 
@@ -59,14 +82,16 @@ describe('BooksService', () => {
   describe('create', () => {
     it('should create a book', async () => {
       const dto = { title: 'New Book', author: 'Author', publisher: 'Publisher', genre: 'Fiction' };
-      mockRepository.create.mockReturnValue(mockBook);
-      mockRepository.save.mockResolvedValue(mockBook);
+
+      managerMock.create.mockReturnValue({ ...dto });
+      managerMock.save.mockResolvedValue({ id: '1', ...dto });
 
       const result = await service.create(dto);
 
-      expect(result).toEqual(mockBook);
-      expect(mockRepository.create).toHaveBeenCalledWith(dto);
-      expect(mockRepository.save).toHaveBeenCalled();
+      expect(dataSourceMock.transaction).toHaveBeenCalled();
+      expect(managerMock.create).toHaveBeenCalledWith(Book, dto);
+      expect(managerMock.save).toHaveBeenCalledWith(Book, { ...dto });
+      expect(result).toEqual({ id: '1', ...dto });
     });
   });
 
@@ -151,12 +176,12 @@ describe('BooksService', () => {
     it('should search with multiple filters', async () => {
       mockRepository.findAndCount.mockResolvedValue([[mockBook], 1]);
 
-      const result = await service.findAll({ 
-        q: 'Test', 
+      const result = await service.findAll({
+        q: 'Test',
         genre: 'Fiction',
         publisher: 'Test Publisher',
         author: 'Test Author',
-        available: 'true'
+        available: 'true',
       });
 
       expect(result.items).toEqual([mockBook]);
@@ -183,26 +208,29 @@ describe('BooksService', () => {
   describe('update', () => {
     it('should update a book', async () => {
       const dto = { title: 'Updated Book' };
-      mockRepository.findOne.mockResolvedValue(mockBook);
-      mockRepository.save.mockResolvedValue({ ...mockBook, ...dto });
+
+      managerMock.findOne.mockResolvedValue({ ...mockBook });
+      managerMock.save.mockResolvedValue({ ...mockBook, ...dto });
 
       const result = await service.update('1', dto);
 
+      expect(dataSourceMock.transaction).toHaveBeenCalled();
+      expect(managerMock.findOne).toHaveBeenCalledWith(Book, { where: { id: '1' } });
       expect(result.title).toBe('Updated Book');
-      expect(mockRepository.save).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when updating non-existent book', async () => {
-      mockRepository.findOne.mockResolvedValue(null);
+      managerMock.findOne.mockResolvedValue(null);
 
-      await expect(service.update('999', {})).rejects.toThrow(NotFoundException);
+      await expect(service.update('999', {} as any)).rejects.toThrow(NotFoundException);
+      expect(dataSourceMock.transaction).toHaveBeenCalled();
     });
   });
 
   describe('remove', () => {
     it('should soft delete a book', async () => {
       mockRepository.findOne.mockResolvedValue(mockBook);
-      mockRepository.softDelete.mockResolvedValue({ affected: 1 });
+      mockRepository.softDelete.mockResolvedValue({ affected: 1 } as any);
 
       const result = await service.remove('1');
 
@@ -219,7 +247,7 @@ describe('BooksService', () => {
 
   describe('restore', () => {
     it('should restore a deleted book', async () => {
-      mockRepository.restore.mockResolvedValue({ affected: 1 });
+      mockRepository.restore.mockResolvedValue({ affected: 1 } as any);
       mockRepository.findOne.mockResolvedValue(mockBook);
 
       const result = await service.restore('1');

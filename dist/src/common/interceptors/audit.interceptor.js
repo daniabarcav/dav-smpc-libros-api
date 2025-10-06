@@ -11,9 +11,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuditInterceptor = void 0;
 const common_1 = require("@nestjs/common");
-const operators_1 = require("rxjs/operators");
+const rxjs_1 = require("rxjs");
 const core_1 = require("@nestjs/core");
 const audit_service_1 = require("../../audit/audit.service");
+const logger_1 = require("../../common/logger");
 let AuditInterceptor = class AuditInterceptor {
     constructor(moduleRef) {
         this.moduleRef = moduleRef;
@@ -22,19 +23,32 @@ let AuditInterceptor = class AuditInterceptor {
         const req = ctx.switchToHttp().getRequest();
         const method = String(req.method || '').toUpperCase();
         const action = { POST: 'create', PATCH: 'update', DELETE: 'delete' }[method] ?? 'read';
-        return next.handle().pipe((0, operators_1.tap)(async (result) => {
+        const entity = req.route?.path?.startsWith('/books') ? 'Book' : 'Unknown';
+        const reqId = req.reqId;
+        return next.handle().pipe((0, rxjs_1.tap)(async (result) => {
             try {
                 const audit = this.moduleRef.get(audit_service_1.AuditService, { strict: false });
-                await audit.log({
+                const payload = {
                     action,
-                    entity: req.route?.path?.startsWith('/books') ? 'Book' : 'Unknown',
+                    entity,
                     entityId: (result?.id ?? req.params?.id) || undefined,
-                    after: (action === 'create' || action === 'update' || action === 'delete') ? result : undefined,
+                    after: ['create', 'update', 'delete'].includes(action) ? result : undefined,
                     userId: req.user?.sub,
-                    reqId: req.reqId,
+                    reqId,
+                };
+                await audit.log(payload);
+                logger_1.appLogger.info(`${action.toUpperCase()} ${entity} by user ${req.user?.sub || 'anonymous'}`, {
+                    context: 'AuditInterceptor',
+                    meta: payload,
                 });
             }
-            catch { }
+            catch (err) {
+                logger_1.appLogger.warn('Audit logging failed', {
+                    context: 'AuditInterceptor',
+                    error: err?.message,
+                    reqId,
+                });
+            }
         }));
     }
 };

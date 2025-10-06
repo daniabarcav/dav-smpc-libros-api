@@ -1,6 +1,8 @@
-import { of } from 'rxjs';
+import { of, lastValueFrom } from 'rxjs';
 import { AuditInterceptor } from './audit.interceptor';
 import { ModuleRef } from '@nestjs/core';
+import type { CallHandler, ExecutionContext } from '@nestjs/common';
+
 
 describe('AuditInterceptor', () => {
   let auditLog: any;
@@ -17,7 +19,21 @@ describe('AuditInterceptor', () => {
     jest.clearAllMocks();
   });
 
-  it('loguea create en /books', (done) => {
+  function buildCtx(req: any): ExecutionContext {
+    return {
+      switchToHttp: () => ({
+        getRequest: () => req,
+        getResponse: () => ({}),
+        getNext: () => ({}),
+      }),
+      getClass: () => ({} as any),
+      getHandler: () => ({} as any),
+      getArgs: () => [req],
+      getType: () => 'http',
+    } as unknown as ExecutionContext;
+  }
+
+  it('loguea create en /books', async () => {
     const req: any = {
       method: 'POST',
       route: { path: '/books' },
@@ -26,26 +42,24 @@ describe('AuditInterceptor', () => {
       reqId: 'RID',
     };
 
-    const ctx: any = { switchToHttp: () => ({ getRequest: () => req }) };
-    const next = { handle: () => of({ id: 'b1' }) };
+    const ctx = buildCtx(req);
+    const next: CallHandler = { handle: () => of({ id: 'b1' }) };
 
-    interceptor.intercept(ctx, next as any).subscribe({
-      next: () => {},
-      complete: async () => {
-        expect(moduleRef.get).toHaveBeenCalled();
-        expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({
-          action: 'create',
-          entity: 'Book',
-          entityId: 'b1',
-          userId: 'u1',
-          reqId: 'RID',
-        }));
-        done();
-      },
-    });
+    await lastValueFrom(interceptor.intercept(ctx, next));
+
+    expect(moduleRef.get).toHaveBeenCalled();
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'create',
+        entity: 'Book',
+        entityId: 'b1',
+        userId: 'u1',
+        reqId: 'RID',
+      }),
+    );
   });
 
-  it('loguea update en /books/:id', (done) => {
+  it('loguea update en /books/:id', async () => {
     const req: any = {
       method: 'PATCH',
       route: { path: '/books/:id' },
@@ -54,25 +68,23 @@ describe('AuditInterceptor', () => {
       reqId: 'RID2',
     };
 
-    const ctx: any = { switchToHttp: () => ({ getRequest: () => req }) };
-    const next = { handle: () => of({ id: 'b1', title: 'Updated' }) };
+    const ctx = buildCtx(req);
+    const next: CallHandler = { handle: () => of({ id: 'b1', title: 'Updated' }) };
 
-    interceptor.intercept(ctx, next as any).subscribe({
-      next: () => {},
-      complete: async () => {
-        expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({
-          action: 'update',
-          entity: 'Book',
-          entityId: 'b1',
-          userId: 'u1',
-          reqId: 'RID2',
-        }));
-        done();
-      },
-    });
+    await lastValueFrom(interceptor.intercept(ctx, next));
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'update',
+        entity: 'Book',
+        entityId: 'b1',
+        userId: 'u1',
+        reqId: 'RID2',
+      }),
+    );
   });
 
-  it('loguea delete en /books/:id', (done) => {
+  it('loguea delete en /books/:id', async () => {
     const req: any = {
       method: 'DELETE',
       route: { path: '/books/:id' },
@@ -81,25 +93,23 @@ describe('AuditInterceptor', () => {
       reqId: 'RID3',
     };
 
-    const ctx: any = { switchToHttp: () => ({ getRequest: () => req }) };
-    const next = { handle: () => of({ id: 'b1', deleted: true }) };
+    const ctx = buildCtx(req);
+    const next: CallHandler = { handle: () => of({ id: 'b1', deleted: true }) };
 
-    interceptor.intercept(ctx, next as any).subscribe({
-      next: () => {},
-      complete: async () => {
-        expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({
-          action: 'delete',
-          entity: 'Book',
-          entityId: 'b1',
-          userId: 'u1',
-          reqId: 'RID3',
-        }));
-        done();
-      },
-    });
+    await lastValueFrom(interceptor.intercept(ctx, next));
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'delete',
+        entity: 'Book',
+        entityId: 'b1',
+        userId: 'u1',
+        reqId: 'RID3',
+      }),
+    );
   });
 
-  it('no loguea GET requests', (done) => {
+  it('loguea read en GET /books', async () => {
     const req: any = {
       method: 'GET',
       route: { path: '/books' },
@@ -111,16 +121,23 @@ describe('AuditInterceptor', () => {
     const ctx: any = { switchToHttp: () => ({ getRequest: () => req }) };
     const next = { handle: () => of({ items: [] }) };
 
-    interceptor.intercept(ctx, next as any).subscribe({
-      next: () => {},
-      complete: async () => {
-        expect(auditLog.log).not.toHaveBeenCalled();
-        done();
-      },
-    });
+    await lastValueFrom(interceptor.intercept(ctx, next as any));
+
+    expect(auditLog.log).toHaveBeenCalledTimes(1);
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'read',
+        entity: 'Book',
+        entityId: undefined,
+        userId: 'u1',
+        reqId: 'RID4',
+        after: undefined,
+      }),
+    );
   });
 
-  it('maneja request sin usuario', (done) => {
+
+  it('maneja request sin usuario', async () => {
     const req: any = {
       method: 'POST',
       route: { path: '/books' },
@@ -129,51 +146,46 @@ describe('AuditInterceptor', () => {
       reqId: 'RID5',
     };
 
-    const ctx: any = { switchToHttp: () => ({ getRequest: () => req }) };
-    const next = { handle: () => of({ id: 'b1' }) };
+    const ctx = buildCtx(req);
+    const next: CallHandler = { handle: () => of({ id: 'b1' }) };
 
-    interceptor.intercept(ctx, next as any).subscribe({
-      next: () => {},
-      complete: async () => {
-        expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({
-          action: 'create',
-          entity: 'Book',
-          entityId: 'b1',
-          userId: null,
-          reqId: 'RID5',
-        }));
-        done();
-      },
-    });
+    await lastValueFrom(interceptor.intercept(ctx, next));
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'create',
+        entity: 'Book',
+        entityId: 'b1',
+        userId: undefined,
+        reqId: 'RID5',
+      }),
+    );
   });
 
-  it('maneja request sin reqId', (done) => {
+  it('maneja request sin reqId', async () => {
     const req: any = {
       method: 'POST',
       route: { path: '/books' },
       params: {},
       user: { sub: 'u1' },
-      // Sin reqId
     };
 
-    const ctx: any = { switchToHttp: () => ({ getRequest: () => req }) };
-    const next = { handle: () => of({ id: 'b1' }) };
+    const ctx = buildCtx(req);
+    const next: CallHandler = { handle: () => of({ id: 'b1' }) };
 
-    interceptor.intercept(ctx, next as any).subscribe({
-      next: () => {},
-      complete: async () => {
-        expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({
-          action: 'create',
-          entity: 'Book',
-          entityId: 'b1',
-          userId: 'u1',
-        }));
-        done();
-      },
-    });
+    await lastValueFrom(interceptor.intercept(ctx, next));
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'create',
+        entity: 'Book',
+        entityId: 'b1',
+        userId: 'u1',
+      }),
+    );
   });
 
-  it('maneja respuesta sin id', (done) => {
+  it('maneja respuesta sin id', async () => {
     const req: any = {
       method: 'POST',
       route: { path: '/books' },
@@ -182,25 +194,23 @@ describe('AuditInterceptor', () => {
       reqId: 'RID6',
     };
 
-    const ctx: any = { switchToHttp: () => ({ getRequest: () => req }) };
-    const next = { handle: () => of({ success: true }) }; // Sin id
+    const ctx = buildCtx(req);
+    const next: CallHandler = { handle: () => of({ success: true }) }; 
 
-    interceptor.intercept(ctx, next as any).subscribe({
-      next: () => {},
-      complete: async () => {
-        expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({
-          action: 'create',
-          entity: 'Book',
-          entityId: undefined,
-          userId: 'u1',
-          reqId: 'RID6',
-        }));
-        done();
-      },
-    });
+    await lastValueFrom(interceptor.intercept(ctx, next));
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'create',
+        entity: 'Book',
+        entityId: undefined,
+        userId: 'u1',
+        reqId: 'RID6',
+      }),
+    );
   });
 
-  it('maneja rutas con múltiples parámetros', (done) => {
+  it('maneja rutas con múltiples parámetros', async () => {
     const req: any = {
       method: 'PATCH',
       route: { path: '/users/:userId/books/:id' },
@@ -209,25 +219,24 @@ describe('AuditInterceptor', () => {
       reqId: 'RID7',
     };
 
-    const ctx: any = { switchToHttp: () => ({ getRequest: () => req }) };
-    const next = { handle: () => of({ id: 'b1' }) };
+    const ctx = buildCtx(req);
+    const next: CallHandler = { handle: () => of({ id: 'b1' }) };
 
-    interceptor.intercept(ctx, next as any).subscribe({
-      next: () => {},
-      complete: async () => {
-        expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({
-          action: 'update',
-          entity: 'Book',
-          entityId: 'b1',
-          userId: 'u1',
-          reqId: 'RID7',
-        }));
-        done();
-      },
-    });
+    await lastValueFrom(interceptor.intercept(ctx, next));
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'update',
+        entity: 'Unknown',    
+        entityId: 'b1',
+        userId: 'u1',
+        reqId: 'RID7',
+        after: { id: 'b1' },   
+      }),
+    );
   });
 
-  it('no loguea para rutas no relacionadas con entidades', (done) => {
+  it('loguea Unknown para rutas no relacionadas con entidades', async () => {
     const req: any = {
       method: 'POST',
       route: { path: '/auth/login' },
@@ -236,14 +245,21 @@ describe('AuditInterceptor', () => {
       reqId: 'RID8',
     };
 
-    const ctx: any = { switchToHttp: () => ({ getRequest: () => req }) };
-    const next = { handle: () => of({ token: 'abc' }) };
+    const ctx = buildCtx(req);
+    const next: CallHandler = { handle: () => of({ token: 'abc' }) };
 
-    interceptor.intercept(ctx, next as any).subscribe({
-      next: () => {},
-      complete: async () => {
-        done();
-      },
-    });
+    await lastValueFrom(interceptor.intercept(ctx, next));
+
+    expect(auditLog.log).toHaveBeenCalledTimes(1);
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'create',
+        entity: 'Unknown',
+        entityId: undefined,
+        userId: 'u1',
+        reqId: 'RID8',
+        after: { token: 'abc' },
+      }),
+    );
   });
 });

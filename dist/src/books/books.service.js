@@ -18,12 +18,16 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const book_entity_1 = require("./entities/book.entity");
 let BooksService = class BooksService {
-    constructor(repo) {
+    constructor(repo, dataSource) {
         this.repo = repo;
+        this.dataSource = dataSource;
     }
     async create(dto) {
-        const entity = this.repo.create(dto);
-        return this.repo.save(entity);
+        return this.dataSource.transaction(async (manager) => {
+            const entity = manager.create(book_entity_1.Book, dto);
+            const saved = await manager.save(book_entity_1.Book, entity);
+            return saved;
+        });
     }
     async findAll(q) {
         const page = q?.page ?? 1;
@@ -91,9 +95,13 @@ let BooksService = class BooksService {
         return book;
     }
     async update(id, dto) {
-        const book = await this.findOne(id);
-        Object.assign(book, dto);
-        return this.repo.save(book);
+        return this.dataSource.transaction(async (manager) => {
+            const book = await manager.findOne(book_entity_1.Book, { where: { id } });
+            if (!book)
+                throw new common_1.NotFoundException('Libro no encontrado');
+            Object.assign(book, dto);
+            return manager.save(book_entity_1.Book, book);
+        });
     }
     async remove(id) {
         await this.findOne(id);
@@ -109,6 +117,7 @@ exports.BooksService = BooksService;
 exports.BooksService = BooksService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(book_entity_1.Book)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.DataSource])
 ], BooksService);
 //# sourceMappingURL=books.service.js.map
